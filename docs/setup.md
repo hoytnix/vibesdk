@@ -1,6 +1,10 @@
 # VibSDK Setup Guide
 
-Local first time setup guide for VibSDK - get your AI coding platform running locally and also ready to be deployed.
+Local first time setup guide for VibSDK - get your AI coding platform running locally and also ready to be deployed. 
+
+**Make sure to read through the entire guide for important notes, and have all the required information ready before starting.**
+
+**Important Note: Cloudflare WARP has been known to cause issues with anonymous Cloudflared tunnels used in local development. It may cause previews to not load. If you experience issues with local development previews, try disabling WARP (full mode) while working with VibSDK. You may use WARP in DNS only (1.1.1.1) mode**
 
 ## Prerequisites
 
@@ -12,7 +16,7 @@ Before getting started, make sure you have:
 - **Cloudflare API Token** with appropriate permissions
 
 ### Recommended
-- **Bun** (automatically installed by setup script for better performance)
+- **Bun**
 - **Custom domain** configured in Cloudflare (for production deployment)
 
 ### For Production Features
@@ -25,8 +29,11 @@ Before getting started, make sure you have:
 The fastest way to get VibSDK running is with our automated setup script:
 
 ```bash
-npm run setup
-# Or if you already have Bun installed: bun run setup
+# Bun is recommended for the projec instead of npm. First install bun if you don't have it already
+curl -fsSL https://bun.sh/install | bash
+# Then install dependencies and run setup
+bun install
+bun run setup
 ```
 
 This interactive script will guide you through the entire setup process, including:
@@ -52,19 +59,16 @@ The setup script will ask you for the following information:
 ### Cloudflare Account Information
 
 1. **Account ID**: Found in your Cloudflare dashboard sidebar
-2. **API Token**: Create one with these permissions:
-   - **Account** - Account:Read
-   - **Zone** - Zone Settings:Edit, Zone:Edit, DNS:Edit (if using custom domain)
-   - **Account** - Workers KV Storage:Edit, D1:Edit, Workers Scripts:Edit, Workers AI:Edit
-   - **Account** - R2:Edit (for object storage)
-   - **Account** - Cloudflare Images:Edit (for image handling)
-   - **Account** - Account Rulesets:Edit (for rate limiting)
+2. **API Token**: In you Cloudflare dashboard under "My Profile" > "API Tokens", create a token (Using the "Edit Cloudflare Workers" template is recommended) with the following configurations:
+   - Your Account - Workers KV Storage:Edit, Workers Scripts:Edit, Account Settings:Read, Workers Tail:Read, Workers R2 Storage:Edit, Cloudflare Pages:Edit, Workers Builds Configuration:Edit, Workers Agents Configuration:Edit, Workers Observability:Edit, Containers:Edit, D1:Edit, AI Gateway:Read, AI Gateway:Edit, AI Gateway:Run, Cloudchamber:Edit, Browser Rendering:Edit
+   - All zones - Workers Routes:Edit
+   - All users - User Details:Read, Memberships:Read
+
+   **If using the `Edit Cloudflare Workers` template, make sure to add the missing permissions above manually.**
 
    **Important**: Some features like D1 databases and R2 may require a paid Cloudflare plan.
 
 ### Domain Configuration
-
-The script now uses a **simplified, upfront domain configuration**:
 
 **With Custom Domain:**
 ```bash
@@ -85,12 +89,6 @@ Enter your custom domain (or press Enter to skip): [press Enter]
 Continue with local-only setup? (Y/n): 
 ```
 
-**Benefits:**
-- **One-time decision**: Domain asked once, used for both dev and production
-- **Clear consequences**: Script explains what features are unavailable without domain
-- **Retry option**: Can go back if you change your mind
-- **Y/n defaults**: Capital letter shows default choice (press Enter)
-
 ### AI Gateway Configuration
 
 **Cloudflare AI Gateway (Recommended)**
@@ -100,7 +98,7 @@ Continue with local-only setup? (Y/n):
 
 **Custom OpenAI URL (Alternative)**
 - For users with existing OpenAI-compatible endpoints
-- Requires manual model configuration in `config.ts`
+- Requires manual model configuration in `worker/agents/inferutils/config.ts`
 
 ### AI Provider Selection
 
@@ -124,8 +122,9 @@ The setup script offers multiple AI providers with intelligent multi-selection:
 
 **Google AI Studio (Recommended):**
 - Default model configurations use Gemini models
-- No additional config.ts editing required
-- Best performance and compatibility
+- No additional `worker/agents/inferutils/config.ts` editing required
+- Best compatibility - This is the model used in the official deployment at https://build.cloudflare.dev
+- You can get a free API key from https://aistudio.google.com/
 
 **Other Providers:**
 - **Strong warning**: You MUST edit `worker/agents/inferutils/config.ts` 
@@ -144,6 +143,12 @@ The script will also ask for OAuth credentials:
 - **Google OAuth**: For user authentication and login (not AI Studio access)
 - **GitHub OAuth**: For user authentication and login
 - **GitHub Export OAuth**: For exporting generated apps to GitHub repositories (separate from login OAuth)
+
+**If you don't provide OAuth credentials, by default at login, you will only be able to use email-based registration/login.**
+
+### Docker Requirement
+
+For local development with sandbox instances, Docker is required. Make sure Docker is installed and running on your machine before running the platform.
 
 ## Manual Setup (Alternative)
 
@@ -189,13 +194,15 @@ After setup is complete:
 
 ```bash
 # Set up database
-npm run db:migrate:local
+bun run db:migrate:local
 
 # Start development server
-npm run dev
+bun run dev
 ```
 
 Visit your app at `http://localhost:5173`
+
+**Important Note**: If you didn't specifiy any oauth credentials during setup, You would need to register an account for the first time. 
 
 ## Troubleshooting
 
@@ -280,7 +287,7 @@ ENV CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 If you configured remote deployment during setup, you'll have a `.prod.vars` file ready for production. Deploy with:
 
 ```bash
-npm run deploy
+bun run deploy
 ```
 
 This will:
