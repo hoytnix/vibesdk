@@ -32,12 +32,8 @@ export function setupPluginRoutes(app: Hono<PluginAppEnv>): void {
 
   // GET /api/plugins/discover
   pluginRoutes.get('/discover', async (c) => {
-    // In a real implementation, this would come from a curated list in D1
-    const discoverablePlugins = [
-      { id: 'plugin-1', name: 'AI Prompt Modifier', version: '1.0.0', author: 'Dev Co.' },
-      { id: 'plugin-2', name: 'Project Template Pack', version: '1.2.0', author: 'Creative Inc.' },
-    ];
-    return c.json(discoverablePlugins);
+    const { results } = await c.env.DB.prepare('SELECT * FROM discoverable_plugins').all();
+    return c.json(results);
   });
 
   // POST /api/plugins/upload

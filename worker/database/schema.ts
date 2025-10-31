@@ -615,3 +615,42 @@ export type NewUserModelProvider = typeof userModelProviders.$inferInsert;
 
 export type Star = typeof stars.$inferSelect;
 export type NewStar = typeof stars.$inferInsert;
+
+// ========================================
+// PLUGIN MANAGEMENT
+// ========================================
+
+/**
+ * PluginRegistry table - Manages the state and metadata of all installed plugins
+ */
+export const pluginRegistry = sqliteTable('PluginRegistry', {
+    id: text('id').primaryKey(), // The plugin's unique identifier, e.g., "my-cool-plugin"
+    name: text('name').notNull(), // User-friendly name
+    version: text('version').notNull(), // Semantic versioning
+    status: text('status', { enum: ['installed', 'active', 'inactive', 'pending'] }).notNull().default('installed'),
+    permissions: text('permissions', { mode: 'json' }).default('{}'), // JSON object for granular permissions
+    installedAt: integer('installed_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+    activatedAt: integer('activated_at', { mode: 'timestamp' }),
+}, (table) => ({
+    statusIdx: index('plugin_registry_status_idx').on(table.status),
+}));
+
+/**
+ * DiscoverablePlugins table - Curated list of plugins available for installation
+ */
+export const discoverablePlugins = sqliteTable('discoverable_plugins', {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    version: text('version').notNull(),
+    author: text('author'),
+    description: text('description'),
+    zipUrl: text('zip_url').notNull(), // URL to the plugin zip in R2 or external source
+    createdAt: integer('created_at', { mode: 'timestamp' }).default(sql`CURRENT_TIMESTAMP`),
+}, (table) => ({
+    nameVersionIdx: uniqueIndex('discoverable_plugins_name_version_idx').on(table.name, table.version),
+}));
+
+export type Plugin = typeof pluginRegistry.$inferSelect;
+export type NewPlugin = typeof pluginRegistry.$inferInsert;
+export type DiscoverablePlugin = typeof discoverablePlugins.$inferSelect;
+export type NewDiscoverablePlugin = typeof discoverablePlugins.$inferInsert;

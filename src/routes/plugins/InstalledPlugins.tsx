@@ -1,36 +1,21 @@
 // src/routes/plugins/InstalledPlugins.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import PluginDetailsModal from './PluginDetailsModal';
 
-const InstalledPlugins: React.FC = () => {
-  const [installedPlugins, setInstalledPlugins] = useState<any[]>([]);
+interface InstalledPluginsProps {
+  installedPlugins: any[];
+  loading: boolean;
+  error: string | null;
+  fetchInstalledPlugins: () => void;
+}
+
+const InstalledPlugins: React.FC<InstalledPluginsProps> = ({
+  installedPlugins,
+  loading,
+  error,
+  fetchInstalledPlugins,
+}) => {
   const [selectedPlugin, setSelectedPlugin] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchInstalledPlugins = () => {
-    setLoading(true);
-    setError(null);
-    fetch('/api/plugins/installed')
-      .then(res => {
-        if (!res.ok) {
-          throw new Error('Failed to fetch installed plugins.');
-        }
-        return res.json();
-      })
-      .then(data => {
-        setInstalledPlugins(data);
-        setLoading(false);
-      })
-      .catch(err => {
-        setError(err.message);
-        setLoading(false);
-      });
-  };
-
-  useEffect(() => {
-    fetchInstalledPlugins();
-  }, []);
 
   const handleDeactivate = (id: string) => {
     fetch(`/api/plugins/deactivate`, {

@@ -2,7 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import PluginDetailsModal from './PluginDetailsModal';
 
-const DiscoverPlugins: React.FC = () => {
+interface DiscoverPluginsProps {
+  onInstallSuccess: () => void;
+}
+
+const DiscoverPlugins: React.FC<DiscoverPluginsProps> = ({ onInstallSuccess }) => {
   const [discoverablePlugins, setDiscoverablePlugins] = useState<any[]>([]);
   const [selectedPlugin, setSelectedPlugin] = useState<any | null>(null);
 
@@ -12,10 +16,15 @@ const DiscoverPlugins: React.FC = () => {
       .then(data => setDiscoverablePlugins(data));
   }, []);
 
-  const handleInstallClick = (plugin: any) => {
-    // In a real app, we'd show a confirmation modal first
-    // that lists the permissions, then call the install endpoint.
-    setSelectedPlugin(plugin);
+  const handleInstallClick = (pluginId: string) => {
+    fetch('/api/plugins/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pluginId }),
+    }).then(() => {
+      onInstallSuccess();
+      setSelectedPlugin(null);
+    });
   };
 
   return (
@@ -26,7 +35,8 @@ const DiscoverPlugins: React.FC = () => {
           <li key={plugin.id}>
             {plugin.name} ({plugin.version}) by {plugin.author}
             {' '}
-            <button onClick={() => handleInstallClick(plugin)}>1-Click Install</button>
+            <button onClick={() => setSelectedPlugin(plugin)}>Details</button>
+            <button onClick={() => handleInstallClick(plugin.id)}>Install</button>
           </li>
         ))}
       </ul>
