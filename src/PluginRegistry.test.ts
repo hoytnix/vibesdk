@@ -56,20 +56,38 @@ describe('PluginRegistry', () => {
   });
 
   describe('executeHook', () => {
-    it('should execute a single callback and transform the data', async () => {
-      const callback = (data: string) => data + ' - modified';
-      PluginRegistry.registerHookCallback('transform-data', callback);
-      const result = await PluginRegistry.executeHook('transform-data', 'initial');
-      expect(result).toBe('initial - modified');
+    describe('Filter Hooks', () => {
+      it('should execute a single callback and transform the data', async () => {
+        PluginRegistry.addHook('transform-data', 'Filter');
+        const callback = (data: string) => data + ' - modified';
+        PluginRegistry.registerHookCallback('transform-data', callback);
+        const result = await PluginRegistry.executeHook('transform-data', 'initial');
+        expect(result).toBe('initial - modified');
+      });
+
+      it('should execute multiple callbacks in order', async () => {
+        PluginRegistry.addHook('math-operation', 'Filter');
+        const callback1 = (data: number) => data * 2;
+        const callback2 = (data: number) => data + 5;
+        PluginRegistry.registerHookCallback('math-operation', callback1);
+        PluginRegistry.registerHookCallback('math-operation', callback2);
+        const result = await PluginRegistry.executeHook('math-operation', 10);
+        expect(result).toBe(25);
+      });
     });
 
-    it('should execute multiple callbacks in order', async () => {
-      const callback1 = (data: number) => data * 2;
-      const callback2 = (data: number) => data + 5;
-      PluginRegistry.registerHookCallback('math-operation', callback1);
-      PluginRegistry.registerHookCallback('math-operation', callback2);
-      const result = await PluginRegistry.executeHook('math-operation', 10);
-      expect(result).toBe(25);
+    describe('Action Hooks', () => {
+      it('should execute callbacks without transforming the data', async () => {
+        PluginRegistry.addHook('action-hook', 'Action');
+        const callback1 = vi.fn();
+        const callback2 = vi.fn();
+        PluginRegistry.registerHookCallback('action-hook', callback1);
+        PluginRegistry.registerHookCallback('action-hook', callback2);
+        const result = await PluginRegistry.executeHook('action-hook', 'initial');
+        expect(result).toBe('initial');
+        expect(callback1).toHaveBeenCalledWith('initial');
+        expect(callback2).toHaveBeenCalledWith('initial');
+      });
     });
 
     it('should return the initial data if the hook does not exist', async () => {

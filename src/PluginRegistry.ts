@@ -89,8 +89,24 @@ class PluginRegistry {
 
   public async executeHook(hookName: string, initialData: any, ...additionalArgs: any[]): Promise<any> {
     const callbacks = this.getHook(hookName);
-    let data = initialData;
+    const hookType = this.hookTypes.get(hookName);
 
+    if (hookType === 'Action') {
+      for (const callback of callbacks) {
+        try {
+          await callback(initialData, ...additionalArgs);
+        } catch (error: any) {
+          console.error(`Error executing Action hook ${hookName}:`, error);
+          await this.pluginErrorLog.prepare('INSERT INTO PluginErrorLog (plugin_id, error_message, stack_trace) VALUES (?, ?, ?)')
+            .bind('unknown', error.message, error.stack)
+            .run();
+        }
+      }
+      return initialData;
+    }
+
+    // Default to 'Filter' behavior
+    let data = initialData;
     for (const callback of callbacks) {
       try {
         const result = await callback(data, ...additionalArgs);
@@ -98,7 +114,7 @@ class PluginRegistry {
           data = result;
         }
       } catch (error: any) {
-        console.error(`Error executing hook ${hookName}:`, error);
+        console.error(`Error executing Filter hook ${hookName}:`, error);
         await this.pluginErrorLog.prepare('INSERT INTO PluginErrorLog (plugin_id, error_message, stack_trace) VALUES (?, ?, ?)')
           .bind('unknown', error.message, error.stack)
           .run();
