@@ -101,6 +101,16 @@
         "binding": "TEMPLATES_BUCKET",
         "bucket_name": "vibesdk-templates",
         "remote": true
+      },
+      {
+        "binding": "PLUGIN_ARCHIVES",
+        "bucket_name": "plugin-archives",
+        "remote": true
+      },
+      {
+        "binding": "PLUGIN_CODE_FS",
+        "bucket_name": "plugin-code-fs",
+        "remote": true
       }
     ],
     "kv_namespaces": [

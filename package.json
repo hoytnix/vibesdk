@@ -112,6 +112,7 @@
 		"sonner": "^2.0.7",
 		"suffix-array": "^0.1.4",
 		"tailwind-merge": "^3.3.1",
+		"unzipper": "^0.12.3",
 		"vaul": "^1.1.2",
 		"vite-plugin-svgr": "^4.5.0",
 		"zod": "^3.25.76"

@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plugin Manifest",
+  "description": "Schema for the plugin.json manifest file.",
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "author": {
+      "type": "string"
+    },
+    "main": {
+      "type": "string"
+    },
+    "permissions": {
+      "type": "object",
+      "properties": {
+        "d1Read": {
+          "type": "boolean"
+        },
+        "d1Write": {
+          "type": "boolean"
+        },
+        "r2Read": {
+          "type": "boolean"
+        },
+        "externalFetch": {
+          "type": "boolean"
+        }
+      },
+      "required": ["d1Read", "d1Write", "r2Read", "externalFetch"]
+    }
+  },
+  "required": ["name", "version", "author", "main", "permissions"]
+}

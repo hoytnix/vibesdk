@@ -1,0 +1,12 @@
+{
+  "name": "Sample Plugin",
+  "version": "1.0.0",
+  "author": "Jules",
+  "main": "main.ts",
+  "permissions": {
+    "d1Read": true,
+    "d1Write": false,
+    "r2Read": true,
+    "externalFetch": false
+  }
+}
