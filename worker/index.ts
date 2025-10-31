@@ -3,6 +3,7 @@ import { SmartCodeGeneratorAgent } from './agents/core/smartGeneratorAgent';
 import { proxyToSandbox } from '@cloudflare/sandbox';
 import { isDispatcherAvailable } from './utils/dispatcherUtils';
 import { createApp } from './app';
+import PluginRegistry from '../src/PluginRegistry';
 // import * as Sentry from '@sentry/cloudflare';
 // import { sentryOptions } from './observability/sentry';
 import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/DORateLimitStore';
@@ -110,6 +111,14 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
  */
 const worker = {
 	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+        // Initialize Plugin Registry
+        // @ts-ignore
+        if (!globalThis.PluginRegistry) {
+            PluginRegistry.initialize(env.DB, env.DB, env.PLUGIN_CODE_FS);
+            // @ts-ignore
+            globalThis.PluginRegistry = PluginRegistry;
+        }
+
         logger.info(`Received request: ${request.method} ${request.url}`);
 		// --- Pre-flight Checks ---
 

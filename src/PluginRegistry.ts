@@ -109,15 +109,21 @@ class PluginRegistry {
         .run();
       plugin.status = 'active';
 
-      // Dynamically import the plugin's main file from R2
-      // This is a simplified representation. In a real scenario, you'd need a more
-      // robust way to handle this, potentially with a custom module loader.
-      const pluginCode = await this.pluginCodeFs.get(`${plugin.name}/${plugin.main}`);
-      if (pluginCode) {
-        // This is a conceptual example. Direct execution of code from R2 in a worker
-        // would require more complex handling, like using `eval` (not recommended)
-        // or a sandboxed environment.
-        console.log(`Plugin ${plugin.name} activated.`);
+      const pluginCodeObject = await this.pluginCodeFs.get(`${pluginId}/${plugin.main}`);
+      if (pluginCodeObject) {
+        const pluginCode = await pluginCodeObject.text();
+        // Using a Data URI with a dynamic import to execute the plugin code
+        // This is a more secure alternative to eval() and works with ES modules.
+        const encodedCode = Buffer.from(pluginCode).toString('base64');
+        const dataUri = `data:text/javascript;base64,${encodedCode}`;
+
+        try {
+          // @ts-ignore - This is a dynamic import, and TypeScript may not recognize it.
+          await import(/* webpackIgnore: true */ dataUri);
+          console.log(`Plugin ${plugin.name} activated and executed.`);
+        } catch (error) {
+          console.error(`Error activating plugin ${plugin.name}:`, error);
+        }
       }
     }
   }
