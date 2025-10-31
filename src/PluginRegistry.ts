@@ -1,8 +1,5 @@
 // src/PluginRegistry.ts
-import * as hooks from './hooks';
 import { D1Database, R2Bucket } from '@cloudflare/workers-types';
-
-type HookName = keyof typeof hooks;
 
 interface PluginManifest {
   name: string;
@@ -24,7 +21,8 @@ interface Plugin extends PluginManifest {
 
 class PluginRegistry {
   private static instance: PluginRegistry;
-  private hooks: Map<HookName, Function[]> = new Map();
+  private hooks: Map<string, Function[]> = new Map();
+  private hookTypes: Map<string, 'Action' | 'Filter'> = new Map();
   private plugins: Map<string, Plugin> = new Map();
   private db!: D1Database;
   private pluginErrorLog!: D1Database;
@@ -45,8 +43,17 @@ class PluginRegistry {
     this.pluginCodeFs = pluginCodeFs;
   }
 
-  public addHook(hookName: HookName, callback: Function): void {
+  public addHook(hookName: string, type: 'Action' | 'Filter'): void {
+    if (this.hooks.has(hookName)) {
+      throw new Error(`Hook ${hookName} is already registered.`);
+    }
+    this.hooks.set(hookName, []);
+    this.hookTypes.set(hookName, type);
+  }
+
+  public registerHookCallback(hookName: string, callback: Function): void {
     if (!this.hooks.has(hookName)) {
+      // Automatically register the hook if it doesn't exist.
       this.hooks.set(hookName, []);
     }
     this.hooks.get(hookName)!.push(callback);
@@ -76,11 +83,11 @@ class PluginRegistry {
     console.log(`Plugin ${plugin.name} registered.`);
   }
 
-  public getHook(hookName: HookName): Function[] {
+  public getHook(hookName: string): Function[] {
     return this.hooks.get(hookName) || [];
   }
 
-  public async executeHook(hookName: HookName, initialData: any, ...additionalArgs: any[]): Promise<any> {
+  public async executeHook(hookName: string, initialData: any, ...additionalArgs: any[]): Promise<any> {
     const callbacks = this.getHook(hookName);
     let data = initialData;
 
