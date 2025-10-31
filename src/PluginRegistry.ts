@@ -21,12 +21,19 @@ interface Plugin extends PluginManifest {
 
 class PluginRegistry {
   private static instance: PluginRegistry;
-  private hooks: Map<string, Function[]> = new Map();
+  private hooks: Map<string, { callback: Function; pluginId: string }[]> = new Map();
   private hookTypes: Map<string, 'Action' | 'Filter'> = new Map();
   private plugins: Map<string, Plugin> = new Map();
   private db!: D1Database;
   private pluginErrorLog!: D1Database;
   private pluginCodeFs!: R2Bucket;
+
+  private readonly hookPermissions: Record<string, keyof PluginManifest['permissions']> = {
+    'database:read': 'd1Read',
+    'database:write': 'd1Write',
+    'filesystem:read': 'r2Read',
+    'network:request': 'externalFetch',
+  };
 
   private constructor() {}
 
@@ -41,6 +48,10 @@ class PluginRegistry {
     this.db = db;
     this.pluginErrorLog = pluginErrorLog;
     this.pluginCodeFs = pluginCodeFs;
+
+    // Register the built-in lifecycle hooks
+    this.addHook('onActivate', 'Action');
+    this.addHook('onDeactivate', 'Action');
   }
 
   public addHook(hookName: string, type: 'Action' | 'Filter'): void {
@@ -51,12 +62,12 @@ class PluginRegistry {
     this.hookTypes.set(hookName, type);
   }
 
-  public registerHookCallback(hookName: string, callback: Function): void {
+  public registerHookCallback(hookName: string, callback: Function, pluginId: string): void {
     if (!this.hooks.has(hookName)) {
       // Automatically register the hook if it doesn't exist.
       this.hooks.set(hookName, []);
     }
-    this.hooks.get(hookName)!.push(callback);
+    this.hooks.get(hookName)!.push({ callback, pluginId });
   }
 
   public async register(pluginPath: string): Promise<void> {
@@ -83,23 +94,26 @@ class PluginRegistry {
     console.log(`Plugin ${plugin.name} registered.`);
   }
 
-  public getHook(hookName: string): Function[] {
+  public getHook(hookName: string): { callback: Function; pluginId: string }[] {
     return this.hooks.get(hookName) || [];
   }
 
   public async executeHook(hookName: string, initialData: any, ...additionalArgs: any[]): Promise<any> {
     const callbacks = this.getHook(hookName);
     const hookType = this.hookTypes.get(hookName);
+    const requiredPermission = this.hookPermissions[hookName];
 
     if (hookType === 'Action') {
-      for (const callback of callbacks) {
-        try {
-          await callback(initialData, ...additionalArgs);
-        } catch (error: any) {
-          console.error(`Error executing Action hook ${hookName}:`, error);
-          await this.pluginErrorLog.prepare('INSERT INTO PluginErrorLog (plugin_id, error_message, stack_trace) VALUES (?, ?, ?)')
-            .bind('unknown', error.message, error.stack)
-            .run();
+      for (const { callback, pluginId } of callbacks) {
+        if (this.hasPermission(pluginId, requiredPermission)) {
+          try {
+            await callback(initialData, ...additionalArgs);
+          } catch (error: any) {
+            console.error(`Error executing Action hook ${hookName}:`, error);
+            await this.pluginErrorLog.prepare('INSERT INTO PluginErrorLog (plugin_id, error_message, stack_trace) VALUES (?, ?, ?)')
+              .bind(pluginId, error.message, error.stack)
+              .run();
+          }
         }
       }
       return initialData;
@@ -107,21 +121,38 @@ class PluginRegistry {
 
     // Default to 'Filter' behavior
     let data = initialData;
-    for (const callback of callbacks) {
-      try {
-        const result = await callback(data, ...additionalArgs);
-        if (result !== undefined) {
-          data = result;
+    for (const { callback, pluginId } of callbacks) {
+      if (this.hasPermission(pluginId, requiredPermission)) {
+        try {
+          const result = await callback(data, ...additionalArgs);
+          if (result !== undefined) {
+            data = result;
+          }
+        } catch (error: any) {
+          console.error(`Error executing Filter hook ${hookName}:`, error);
+          await this.pluginErrorLog.prepare('INSERT INTO PluginErrorLog (plugin_id, error_message, stack_trace) VALUES (?, ?, ?)')
+            .bind(pluginId, error.message, error.stack)
+            .run();
         }
-      } catch (error: any) {
-        console.error(`Error executing Filter hook ${hookName}:`, error);
-        await this.pluginErrorLog.prepare('INSERT INTO PluginErrorLog (plugin_id, error_message, stack_trace) VALUES (?, ?, ?)')
-          .bind('unknown', error.message, error.stack)
-          .run();
       }
     }
 
     return data;
+  }
+
+  private hasPermission(pluginId: string, permission: keyof PluginManifest['permissions']): boolean {
+    if (!permission) {
+      // No permission required for this hook
+      return true;
+    }
+
+    const plugin = this.plugins.get(pluginId);
+    if (!plugin) {
+      // Plugin not found
+      return false;
+    }
+
+    return plugin.permissions[permission];
   }
 
   public async activate(pluginId: string): Promise<void> {
@@ -144,6 +175,9 @@ class PluginRegistry {
           // @ts-ignore - This is a dynamic import, and TypeScript may not recognize it.
           await import(/* webpackIgnore: true */ dataUri);
           console.log(`Plugin ${plugin.name} activated and executed.`);
+
+          // Execute the onActivate hook
+          await this.executeHook('onActivate', plugin.id);
         } catch (error) {
           console.error(`Error activating plugin ${plugin.name}:`, error);
         }
@@ -159,6 +193,9 @@ class PluginRegistry {
         .run();
       plugin.status = 'inactive';
       console.log(`Plugin ${plugin.name} deactivated.`);
+
+      // Execute the onDeactivate hook
+      await this.executeHook('onDeactivate', pluginId);
     }
   }
 }

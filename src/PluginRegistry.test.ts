@@ -41,26 +41,37 @@ describe('PluginRegistry', () => {
   });
 
   describe('registerHookCallback', () => {
+    const pluginId = 'test-plugin';
+
+    beforeEach(() => {
+      // @ts-ignore
+      PluginRegistry.plugins.set(pluginId, {
+        id: pluginId,
+        permissions: { d1Read: true, d1Write: true, r2Read: true, externalFetch: true },
+      });
+    });
+
     it('should register a callback for an existing hook', () => {
       const callback = () => {};
       PluginRegistry.addHook('existing-hook', 'Filter');
-      PluginRegistry.registerHookCallback('existing-hook', callback);
-      expect(PluginRegistry.getHook('existing-hook')).toEqual([callback]);
+      PluginRegistry.registerHookCallback('existing-hook', callback, pluginId);
+      expect(PluginRegistry.getHook('existing-hook')).toEqual([{ callback, pluginId }]);
     });
 
     it('should create a new hook and register a callback if the hook does not exist', () => {
       const callback = () => {};
-      PluginRegistry.registerHookCallback('new-hook', callback);
-      expect(PluginRegistry.getHook('new-hook')).toEqual([callback]);
+      PluginRegistry.registerHookCallback('new-hook', callback, pluginId);
+      expect(PluginRegistry.getHook('new-hook')).toEqual([{ callback, pluginId }]);
     });
   });
 
   describe('executeHook', () => {
     describe('Filter Hooks', () => {
+      const pluginId = 'test-plugin';
       it('should execute a single callback and transform the data', async () => {
         PluginRegistry.addHook('transform-data', 'Filter');
         const callback = (data: string) => data + ' - modified';
-        PluginRegistry.registerHookCallback('transform-data', callback);
+        PluginRegistry.registerHookCallback('transform-data', callback, pluginId);
         const result = await PluginRegistry.executeHook('transform-data', 'initial');
         expect(result).toBe('initial - modified');
       });
@@ -69,20 +80,21 @@ describe('PluginRegistry', () => {
         PluginRegistry.addHook('math-operation', 'Filter');
         const callback1 = (data: number) => data * 2;
         const callback2 = (data: number) => data + 5;
-        PluginRegistry.registerHookCallback('math-operation', callback1);
-        PluginRegistry.registerHookCallback('math-operation', callback2);
+        PluginRegistry.registerHookCallback('math-operation', callback1, pluginId);
+        PluginRegistry.registerHookCallback('math-operation', callback2, pluginId);
         const result = await PluginRegistry.executeHook('math-operation', 10);
         expect(result).toBe(25);
       });
     });
 
     describe('Action Hooks', () => {
+      const pluginId = 'test-plugin';
       it('should execute callbacks without transforming the data', async () => {
         PluginRegistry.addHook('action-hook', 'Action');
         const callback1 = vi.fn();
         const callback2 = vi.fn();
-        PluginRegistry.registerHookCallback('action-hook', callback1);
-        PluginRegistry.registerHookCallback('action-hook', callback2);
+        PluginRegistry.registerHookCallback('action-hook', callback1, pluginId);
+        PluginRegistry.registerHookCallback('action-hook', callback2, pluginId);
         const result = await PluginRegistry.executeHook('action-hook', 'initial');
         expect(result).toBe('initial');
         expect(callback1).toHaveBeenCalledWith('initial');
@@ -123,7 +135,12 @@ describe('PluginRegistry', () => {
 
     // Mock globalThis.PluginRegistry for the dynamic import
     // @ts-ignore
-    globalThis.PluginRegistry = PluginRegistry;
+    globalThis.PluginRegistry = {
+      ...PluginRegistry,
+      registerHookCallback: (hookName: string, callback: Function) => {
+        PluginRegistry.registerHookCallback(hookName, callback, pluginId);
+      },
+    };
 
     await PluginRegistry.activate(pluginId);
 
@@ -132,5 +149,39 @@ describe('PluginRegistry', () => {
     const prompt = 'hello';
     const result = await PluginRegistry.executeHook('onAgentRequestStart', prompt);
     expect(result).toBe('hello - modified');
+  });
+
+  describe('activate and deactivate', () => {
+    const pluginId = 'lifecycle-plugin';
+    const plugin = {
+      id: pluginId,
+      name: 'Lifecycle Plugin',
+      version: '1.0.0',
+      main: 'main.js',
+      status: 'inactive',
+      permissions: { d1Read: true, d1Write: false, r2Read: true, externalFetch: false },
+    };
+
+    beforeEach(() => {
+      // @ts-ignore
+      PluginRegistry.plugins.set(pluginId, plugin);
+      const mockR2Object = { text: vi.fn().mockResolvedValue('// empty') };
+      // @ts-ignore
+      (mockPluginCodeFs.get as vi.Mock).mockResolvedValue(mockR2Object);
+    });
+
+    it('should call the onActivate hook when a plugin is activated', async () => {
+      const onActivateCallback = vi.fn();
+      PluginRegistry.registerHookCallback('onActivate', onActivateCallback, pluginId);
+      await PluginRegistry.activate(pluginId);
+      expect(onActivateCallback).toHaveBeenCalledWith(pluginId);
+    });
+
+    it('should call the onDeactivate hook when a plugin is deactivated', async () => {
+      const onDeactivateCallback = vi.fn();
+      PluginRegistry.registerHookCallback('onDeactivate', onDeactivateCallback, pluginId);
+      await PluginRegistry.deactivate(pluginId);
+      expect(onDeactivateCallback).toHaveBeenCalledWith(pluginId);
+    });
   });
 });
