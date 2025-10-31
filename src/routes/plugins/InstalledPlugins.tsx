@@ -5,13 +5,31 @@ import PluginDetailsModal from './PluginDetailsModal';
 const InstalledPlugins: React.FC = () => {
   const [installedPlugins, setInstalledPlugins] = useState<any[]>([]);
   const [selectedPlugin, setSelectedPlugin] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchInstalledPlugins = () => {
+    setLoading(true);
+    setError(null);
+    fetch('/api/plugins/installed')
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch installed plugins.');
+        }
+        return res.json();
+      })
+      .then(data => {
+        setInstalledPlugins(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  };
 
   useEffect(() => {
-    // In a real app, this would fetch the list of installed plugins from the backend
-    // For now, we'll keep the static list and add API calls for actions.
-    setInstalledPlugins([
-      { id: 'sample-plugin', name: 'Sample Plugin', version: '1.0.0', status: 'active' },
-    ]);
+    fetchInstalledPlugins();
   }, []);
 
   const handleDeactivate = (id: string) => {
@@ -19,9 +37,7 @@ const InstalledPlugins: React.FC = () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pluginId: id }),
-    }).then(() => {
-      setInstalledPlugins(installedPlugins.map(p => p.id === id ? { ...p, status: 'inactive' } : p));
-    });
+    }).then(fetchInstalledPlugins);
   };
 
   const handleActivate = (id: string) => {
@@ -29,9 +45,7 @@ const InstalledPlugins: React.FC = () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pluginId: id }),
-    }).then(() => {
-      setInstalledPlugins(installedPlugins.map(p => p.id === id ? { ...p, status: 'active' } : p));
-    });
+    }).then(fetchInstalledPlugins);
   };
 
   const handleUninstall = (id: string) => {
@@ -39,10 +53,16 @@ const InstalledPlugins: React.FC = () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pluginId: id }),
-    }).then(() => {
-      setInstalledPlugins(installedPlugins.filter(p => p.id !== id));
-    });
+    }).then(fetchInstalledPlugins);
   };
+
+  if (loading) {
+    return <div>Loading installed plugins...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error}</div>;
+  }
 
   return (
     <div>

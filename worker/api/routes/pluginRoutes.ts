@@ -24,6 +24,12 @@ export function setupPluginRoutes(app: Hono<PluginAppEnv>): void {
     await next();
   });
 
+  // GET /api/plugins/installed
+  pluginRoutes.get('/installed', async (c) => {
+    const { results } = await c.env.DB.prepare('SELECT * FROM PluginRegistry').all();
+    return c.json(results);
+  });
+
   // GET /api/plugins/discover
   pluginRoutes.get('/discover', async (c) => {
     // In a real implementation, this would come from a curated list in D1
