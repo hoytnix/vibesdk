@@ -17,6 +17,13 @@ interface PluginDetailsModalProps {
   isInstall?: boolean;
 }
 
+const permissionDisplayNames: Record<string, string> = {
+  d1Read: 'Read from Database (D1)',
+  d1Write: 'Write to Database (D1)',
+  r2Read: 'Read from File Storage (R2)',
+  externalFetch: 'Make External Network Requests',
+};
+
 const PluginDetailsModal: React.FC<PluginDetailsModalProps> = ({ plugin, onClose, isInstall }) => {
   const handleInstall = () => {
     fetch('/api/plugins/install', {
@@ -41,7 +48,7 @@ const PluginDetailsModal: React.FC<PluginDetailsModalProps> = ({ plugin, onClose
         <div>
           <h3>Permissions Required:</h3>
           <ul>
-            {Object.entries(plugin.permissions).map(([key, value]) => value && <li key={key}>{key}</li>)}
+            {Object.entries(plugin.permissions).map(([key, value]) => value && <li key={key}>{permissionDisplayNames[key] || key}</li>)}
           </ul>
         </div>
       )}

@@ -1,23 +1,8 @@
 // src/PluginRegistry.ts
 import { D1Database, R2Bucket } from '@cloudflare/workers-types';
-
-interface PluginManifest {
-  name: string;
-  version: string;
-  author: string;
-  main: string;
-  permissions: {
-    d1Read: boolean;
-    d1Write: boolean;
-    r2Read: boolean;
-    externalFetch: boolean;
-  };
-}
-
-interface Plugin extends PluginManifest {
-  id: string;
-  status: 'active' | 'inactive' | 'pending';
-}
+import { Plugin, PluginManifest } from './api-types';
+import { SandboxedD1 } from './SandboxedD1';
+import { SandboxedR2 } from './SandboxedR2';
 
 class PluginRegistry {
   private static instance: PluginRegistry;
@@ -32,6 +17,7 @@ class PluginRegistry {
     'database:read': 'd1Read',
     'database:write': 'd1Write',
     'filesystem:read': 'r2Read',
+    'filesystem:write': 'r2Write',
     'network:request': 'externalFetch',
   };
 
@@ -52,6 +38,8 @@ class PluginRegistry {
     // Register the built-in lifecycle hooks
     this.addHook('onActivate', 'Action');
     this.addHook('onDeactivate', 'Action');
+    this.addHook('onInstall', 'Action');
+    this.addHook('onUninstall', 'Action');
   }
 
   public addHook(hookName: string, type: 'Action' | 'Filter'): void {
@@ -98,6 +86,10 @@ class PluginRegistry {
     return this.hooks.get(hookName) || [];
   }
 
+  public getPlugin(pluginId: string): Plugin | undefined {
+    return this.plugins.get(pluginId);
+  }
+
   public async executeHook(hookName: string, initialData: any, ...additionalArgs: any[]): Promise<any> {
     const callbacks = this.getHook(hookName);
     const hookType = this.hookTypes.get(hookName);
@@ -107,7 +99,9 @@ class PluginRegistry {
       for (const { callback, pluginId } of callbacks) {
         if (this.hasPermission(pluginId, requiredPermission)) {
           try {
-            await callback(initialData, ...additionalArgs);
+            const sandboxedD1 = new SandboxedD1(this.db, pluginId, this);
+            const sandboxedR2 = new SandboxedR2(this.pluginCodeFs, pluginId, this);
+            await callback(initialData, { d1: sandboxedD1, r2: sandboxedR2 }, ...additionalArgs);
           } catch (error: any) {
             console.error(`Error executing Action hook ${hookName}:`, error);
             await this.pluginErrorLog.prepare('INSERT INTO PluginErrorLog (plugin_id, error_message, stack_trace) VALUES (?, ?, ?)')
@@ -124,7 +118,9 @@ class PluginRegistry {
     for (const { callback, pluginId } of callbacks) {
       if (this.hasPermission(pluginId, requiredPermission)) {
         try {
-          const result = await callback(data, ...additionalArgs);
+          const sandboxedD1 = new SandboxedD1(this.db, pluginId, this);
+          const sandboxedR2 = new SandboxedR2(this.pluginCodeFs, pluginId, this);
+          const result = await callback(data, { d1: sandboxedD1, r2: sandboxedR2 }, ...additionalArgs);
           if (result !== undefined) {
             data = result;
           }

@@ -90,6 +90,9 @@ export function setupPluginRoutes(app: Hono<PluginAppEnv>): void {
       // Register the plugin
       await PluginRegistry.register(pluginId);
 
+      // Trigger the onInstall hook
+      await PluginRegistry.executeHook('onInstall', pluginId);
+
       return c.json({
         message: `Plugin ${pluginId} installed successfully.`,
         status: 'Installed',
@@ -125,6 +128,10 @@ export function setupPluginRoutes(app: Hono<PluginAppEnv>): void {
     zValidator('json', z.object({ pluginId: z.string() })),
     async (c) => {
       const { pluginId } = c.req.valid('json');
+
+      // Trigger the onUninstall hook before deleting the plugin
+      await PluginRegistry.executeHook('onUninstall', pluginId);
+
       // In a real implementation, this would also remove the plugin's code from R2
       await c.env.DB.prepare('DELETE FROM PluginRegistry WHERE id = ?').bind(pluginId).run();
       return c.json({ message: `Plugin ${pluginId} uninstalled.` });
