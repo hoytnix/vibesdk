@@ -19,6 +19,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 import Cloudflare from 'cloudflare';
+import PluginRegistry from '../src/PluginRegistry';
 
 // Get current directory for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -1896,6 +1897,7 @@ class CloudflareDeploymentManager {
     private async runDatabaseMigrations(): Promise<void> {
         console.log('Running database migrations...');
         try {
+            await PluginRegistry.executeHook('beforeDatabaseMigration', null);
             await execSync(
                 'bun run db:generate && bun run db:migrate:local && bun run db:migrate:remote',
                 {

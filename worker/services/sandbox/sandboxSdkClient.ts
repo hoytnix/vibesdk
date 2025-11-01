@@ -50,6 +50,7 @@ import { GitHubService } from '../github/GitHubService';
 import { getPreviewDomain } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs';
 import { FileOutputType } from 'worker/agents/schemas';
+import PluginRegistry from '../../../src/PluginRegistry';
 // Export the Sandbox class in your Worker
 export { Sandbox as UserAppSandboxService, Sandbox as DeployerService} from "@cloudflare/sandbox";
 
@@ -851,6 +852,7 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     private async setupInstance(instanceId: string, projectName: string, localEnvVars?: Record<string, string>): Promise<{previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined> {
         try {
+            await PluginRegistry.executeHook('onAppPreviewStart', { instanceId, projectName, localEnvVars });
             const sandbox = this.getSandbox();
             // Update project configuration with the specified project name
             await this.updateProjectConfiguration(instanceId, projectName);

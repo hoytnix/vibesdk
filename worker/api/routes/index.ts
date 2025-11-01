@@ -14,6 +14,7 @@ import { Hono } from "hono";
 import { AppEnv } from "../../types/appenv";
 import { setupStatusRoutes } from './statusRoutes';
 import { setupPluginRoutes } from './pluginRoutes';
+import { setupTemplateRoutes } from './templateRoutes';
 
 export function setupRoutes(app: Hono<AppEnv>): void {
     // Health check route
@@ -62,4 +63,7 @@ export function setupRoutes(app: Hono<AppEnv>): void {
 
     // Plugin routes
     setupPluginRoutes(app);
+
+    // Template routes
+    setupTemplateRoutes(app);
 }

@@ -4,6 +4,7 @@ import { proxyToSandbox } from '@cloudflare/sandbox';
 import { isDispatcherAvailable } from './utils/dispatcherUtils';
 import { createApp } from './app';
 import PluginRegistry from '../src/PluginRegistry';
+import ProjectTemplateRegistry from './services/templates/templateRegistry';
 // import * as Sentry from '@sentry/cloudflare';
 // import { sentryOptions } from './observability/sentry';
 import { DORateLimitStore as BaseDORateLimitStore } from './services/rate-limit/DORateLimitStore';
@@ -115,8 +116,14 @@ const worker = {
         // @ts-ignore
         if (!globalThis.PluginRegistry) {
             PluginRegistry.initialize(env.DB, env.DB, env.PLUGIN_CODE_FS);
+            PluginRegistry.addHook('registerProjectTemplate', 'Filter');
+            PluginRegistry.addHook('beforeDatabaseMigration', 'Action');
+            PluginRegistry.addHook('onAppPreviewStart', 'Action');
             // @ts-ignore
             globalThis.PluginRegistry = PluginRegistry;
+
+            // Execute the registerProjectTemplate hook to allow plugins to register their templates
+            await PluginRegistry.executeHook('registerProjectTemplate', ProjectTemplateRegistry);
         }
 
         logger.info(`Received request: ${request.method} ${request.url}`);
