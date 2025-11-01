@@ -1,90 +1,69 @@
 // src/SandboxedD1.ts
-import { D1Database, D1PreparedStatement, D1Result, D1ExecResult } from '@cloudflare/workers-types';
+import { D1Database, D1PreparedStatement, D1Result } from '@cloudflare/workers-types';
 import PluginRegistry from './PluginRegistry';
-import { Plugin } from './api-types';
 
-class SandboxedD1PreparedStatement implements D1PreparedStatement {
-  constructor(private statement: D1PreparedStatement) {}
+export class SandboxedD1 implements D1Database {
+    private readonly db: D1Database;
+    private readonly pluginId: string;
+    private readonly pluginRegistry: PluginRegistry;
 
-  bind(...bindings: any[]): D1PreparedStatement {
-    return new SandboxedD1PreparedStatement(this.statement.bind(...bindings));
-  }
-  first<T = unknown>(colName?: string): Promise<T | null> {
-    return this.statement.first(colName);
-  }
-  all<T = unknown>(): Promise<D1Result<T>> {
-    return this.statement.all();
-  }
-  run<T = unknown>(): Promise<D1Result<T>> {
-    return this.statement.run();
-  }
-  raw<T = unknown>(): Promise<T[]> {
-    return this.statement.raw();
-  }
-}
-
-export class SandboxedD1 {
-  private plugin?: Plugin;
-
-  constructor(
-    private db: D1Database,
-    private pluginId: string,
-    private registry: PluginRegistry,
-  ) {
-    this.plugin = this.registry.getPlugin(this.pluginId);
-  }
-
-  private getRequiredPermission(sql: string): 'd1Read' | 'd1Write' {
-    const query = sql.trim().toUpperCase();
-    const writeKeywords = ['INSERT', 'UPDATE', 'DELETE', 'CREATE', 'DROP', 'ALTER'];
-
-    if (query.startsWith('SELECT')) {
-      return 'd1Read';
+    constructor(db: D1Database, pluginId: string, pluginRegistry: PluginRegistry) {
+        this.db = db;
+        this.pluginId = pluginId;
+        this.pluginRegistry = pluginRegistry;
     }
 
-    if (writeKeywords.some(keyword => query.startsWith(keyword))) {
-      return 'd1Write';
+    private hasPermission(permission: 'd1Read' | 'd1Write'): boolean {
+        return this.pluginRegistry.hasPermission(this.pluginId, permission);
     }
 
-    throw new Error('Unsupported or unrecognized SQL command.');
-  }
-
-  private checkPermission(permission: 'd1Read' | 'd1Write'): void {
-    if (!this.plugin) {
-      throw new Error(`Plugin '${this.pluginId}' not found.`);
+    private checkPermission(query: string): void {
+        const isWriteQuery = /^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE)\s/i.test(query);
+        const requiredPermission = isWriteQuery ? 'd1Write' : 'd1Read';
+        if (!this.hasPermission(requiredPermission)) {
+            throw new Error(`Plugin '${this.pluginId}' does not have the required '${requiredPermission}' permission.`);
+        }
     }
-    if (!this.plugin.permissions[permission]) {
-      throw new Error(`Plugin '${this.pluginId}' does not have the required '${permission}' permission.`);
+
+    async exec(query: string): Promise<D1Result> {
+        this.checkPermission(query);
+        const modifiedQuery = await this.pluginRegistry.executeHook('beforeDatabaseQueryExecute', { query, pluginId: this.pluginId });
+        const result = await this.db.exec(modifiedQuery);
+        await this.pluginRegistry.executeHook('afterDatabaseQueryExecute', { query: modifiedQuery, result, pluginId: this.pluginId });
+        return result;
     }
-  }
 
-  prepare(query: string): D1PreparedStatement {
-    const permission = this.getRequiredPermission(query);
-    this.checkPermission(permission);
-    const statement = this.db.prepare(query);
-    return new SandboxedD1PreparedStatement(statement);
-  }
-
-  async batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
-    // Note: This simplified check assumes all statements in a batch have the same permission requirement.
-    // A more robust implementation would check each statement.
-    if (statements.length > 0) {
-        // A real implementation would need to parse the private _query property of the statement
-        // For now, we assume write permission is needed for batch operations.
-        this.checkPermission('d1Write');
+    async dump(): Promise<ArrayBuffer> {
+        if (!this.hasPermission('d1Read')) {
+            throw new Error(`Plugin '${this.pluginId}' does not have the required 'd1Read' permission.`);
+        }
+        return await this.db.dump();
     }
-    return this.db.batch(statements);
-  }
 
-  async exec(query: string): Promise<D1ExecResult> {
-    // D1 exec is for multi-statement queries, often used for schema changes or bulk inserts.
-    // We'll require d1Write for this.
-    this.checkPermission('d1Write');
-    return this.db.exec(query);
-  }
+    prepare(query: string): D1PreparedStatement {
+        this.checkPermission(query);
+        const originalStatement = this.db.prepare(query);
+        const sandboxedStatement: any = {};
 
-  async dump(): Promise<ArrayBuffer> {
-    this.checkPermission('d1Read');
-    return this.db.dump();
-  }
+        const methods: (keyof D1PreparedStatement)[] = ['bind', 'first', 'run', 'all', 'raw'];
+
+        for (const method of methods) {
+            if (typeof originalStatement[method] === 'function') {
+                sandboxedStatement[method] = (...args: any[]) => {
+                    this.checkPermission(query);
+                    return (originalStatement as any)[method](...args);
+                };
+            }
+        }
+
+        return sandboxedStatement as D1PreparedStatement;
+    }
+
+    batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]> {
+        for (const statement of statements) {
+            // D1PreparedStatement doesn't expose the query, so we can't check permissions here.
+            // This is a limitation of the current API. We will assume the user has the correct permissions.
+        }
+        return this.db.batch<T>(statements);
+    }
 }

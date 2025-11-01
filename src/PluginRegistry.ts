@@ -19,6 +19,10 @@ class PluginRegistry {
     'filesystem:read': 'r2Read',
     'filesystem:write': 'r2Write',
     'network:request': 'externalFetch',
+    'beforeDatabaseQueryExecute': 'd1Read', // or d1Write, permission checked dynamically
+    'afterDatabaseQueryExecute': 'd1Read', // or d1Write, permission checked dynamically
+    'onR2FileUploaded': 'r2Write',
+    'beforeOutboundFetch': 'externalFetch',
   };
 
   private constructor() {}
@@ -47,6 +51,12 @@ class PluginRegistry {
     this.addHook('onCodeBlockGenerated', 'Filter');
     this.addHook('onAgentError', 'Filter');
     this.addHook('onGenerationComplete', 'Action');
+
+    // Register the advanced data and resource hooks
+    this.addHook('beforeDatabaseQueryExecute', 'Filter');
+    this.addHook('afterDatabaseQueryExecute', 'Action');
+    this.addHook('onR2FileUploaded', 'Action');
+    this.addHook('beforeOutboundFetch', 'Filter');
   }
 
   public addHook(hookName: string, type: 'Action' | 'Filter'): void {
@@ -143,7 +153,7 @@ class PluginRegistry {
     return data;
   }
 
-  private hasPermission(pluginId: string, permission: keyof PluginManifest['permissions']): boolean {
+  public hasPermission(pluginId: string, permission: keyof PluginManifest['permissions']): boolean {
     if (!permission) {
       // No permission required for this hook
       return true;

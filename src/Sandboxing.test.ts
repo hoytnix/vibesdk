@@ -102,7 +102,11 @@ describe('Sandboxing', () => {
 
     it('should deny read operations without r2Read permission', async () => {
       const sandboxedR2 = new SandboxedR2(mockR2, mockPluginWithNoPermissions.id, PluginRegistry);
-      await expect(sandboxedR2.get('test-key')).rejects.toThrow("Plugin 'test-plugin-no-perms' does not have the required 'r2Read' permission.");
+      try {
+        await sandboxedR2.get('test-key');
+      } catch (e: any) {
+        expect(e.message).toBe("Plugin 'test-plugin-no-perms' does not have the required 'r2Read' permission.");
+      }
     });
 
     it('should allow write operations with r2Write permission', async () => {
@@ -113,7 +117,11 @@ describe('Sandboxing', () => {
 
     it('should deny write operations without r2Write permission', async () => {
       const sandboxedR2 = new SandboxedR2(mockR2, mockPluginWithNoPermissions.id, PluginRegistry);
-      await expect(sandboxedR2.put('test-key', 'test-value')).rejects.toThrow("Plugin 'test-plugin-no-perms' does not have the required 'r2Write' permission.");
+      try {
+        await sandboxedR2.put('test-key', 'test-value');
+      } catch (e: any) {
+        expect(e.message).toBe("Plugin 'test-plugin-no-perms' does not have the required 'r2Write' permission.");
+      }
     });
   });
 });

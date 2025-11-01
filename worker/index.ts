@@ -122,6 +122,24 @@ const worker = {
             // @ts-ignore
             globalThis.PluginRegistry = PluginRegistry;
 
+            // MONKEY-PATCH FETCH FOR PLUGINS
+            // @ts-ignore
+            const originalFetch = globalThis.fetch;
+            // @ts-ignore
+            globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+                const request = new Request(input, init);
+
+                // Allow plugins to modify the request before it's sent
+                const modifiedRequest = await PluginRegistry.executeHook('beforeOutboundFetch', request);
+
+                // The hook can return a Response to short-circuit the request
+                if (modifiedRequest instanceof Response) {
+                    return modifiedRequest;
+                }
+
+                return originalFetch(modifiedRequest);
+            };
+
             // Execute the registerProjectTemplate hook to allow plugins to register their templates
             await PluginRegistry.executeHook('registerProjectTemplate', ProjectTemplateRegistry);
         }

@@ -1,69 +1,56 @@
 // src/SandboxedR2.ts
-import { R2Bucket, R2Object, R2ObjectBody, R2Objects } from '@cloudflare/workers-types';
+import { R2Bucket, R2Object, R2ObjectBody } from '@cloudflare/workers-types';
 import PluginRegistry from './PluginRegistry';
-import { Plugin } from './api-types';
 
 export class SandboxedR2 implements R2Bucket {
-  private plugin?: Plugin;
+    private readonly r2: R2Bucket;
+    private readonly pluginId: string;
+    private readonly pluginRegistry: PluginRegistry;
 
-  constructor(
-    private r2: R2Bucket,
-    private pluginId: string,
-    private registry: PluginRegistry,
-  ) {
-    this.plugin = this.registry.getPlugin(this.pluginId);
-  }
+    constructor(r2: R2Bucket, pluginId: string, pluginRegistry: PluginRegistry) {
+        this.r2 = r2;
+        this.pluginId = pluginId;
+        this.pluginRegistry = pluginRegistry;
+    }
 
-  private checkPermission(permission: 'r2Read' | 'r2Write'): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (!this.plugin) {
-        reject(new Error(`Plugin '${this.pluginId}' not found.`));
-      }
+    private hasPermission(permission: 'r2Read' | 'r2Write'): boolean {
+        return this.pluginRegistry.hasPermission(this.pluginId, permission);
+    }
 
-      const hasPermission = this.plugin!.permissions[permission];
+    async put(key: string, value: any, options?: any): Promise<R2Object> {
+        if (!this.hasPermission('r2Write')) {
+            return Promise.reject(new Error(`Plugin '${this.pluginId}' does not have the required 'r2Write' permission.`));
+        }
+        const result = await this.r2.put(key, value, options);
+        await this.pluginRegistry.executeHook('onR2FileUploaded', { key, value, options, pluginId: this.pluginId });
+        return result;
+    }
 
-      if (!hasPermission) {
-        reject(new Error(`Plugin '${this.pluginId}' does not have the required '${permission}' permission.`));
-      }
+    async get(key: string, options?: any): Promise<R2ObjectBody | null> {
+        if (!this.hasPermission('r2Read')) {
+            return Promise.reject(new Error(`Plugin '${this.pluginId}' does not have the required 'r2Read' permission.`));
+        }
+        return this.r2.get(key, options);
+    }
 
-      resolve();
-    });
-  }
+    async delete(keys: string | string[]): Promise<void> {
+        if (!this.hasPermission('r2Write')) {
+            throw new Error(`Plugin '${this.pluginId}' does not have the required 'r2Write' permission.`);
+        }
+        return this.r2.delete(keys);
+    }
 
-  // Read operations
-  async get(key: string, options?: R2GetOptions): Promise<R2Object | R2ObjectBody | null> {
-    await this.checkPermission('r2Read');
-    return this.r2.get(key, options);
-  }
+    async list(options?: any): Promise<any> {
+        if (!this.hasPermission('r2Read')) {
+            throw new Error(`Plugin '${this.pluginId}' does not have the required 'r2Read' permission.`);
+        }
+        return this.r2.list(options);
+    }
 
-  async head(key: string): Promise<R2Object | null> {
-    await this.checkPermission('r2Read');
-    return this.r2.head(key);
-  }
-
-  async list(options?: R2ListOptions): Promise<R2Objects> {
-    await this.checkPermission('r2Read');
-    return this.r2.list(options);
-  }
-
-  // Write operations
-  async put(key: string, value: R2PutValue, options?: R2PutOptions): Promise<R2Object> {
-    await this.checkPermission('r2Write');
-    return this.r2.put(key, value, options);
-  }
-
-  async createMultipartUpload(key: string, options?: R2MultipartOptions): Promise<R2MultipartUpload> {
-    await this.checkPermission('r2Write');
-    return this.r2.createMultipartUpload(key, options);
-  }
-
-  async resumeMultipartUpload(key: string, uploadId: string): Promise<R2MultipartUpload> {
-    await this.checkPermission('r2Write');
-    return this.r2.resumeMultipartUpload(key, uploadId);
-  }
-
-  async delete(keys: string | string[]): Promise<void> {
-    await this.checkPermission('r2Write');
-    return this.r2.delete(keys);
-  }
+    async head(key: string): Promise<R2Object | null> {
+        if (!this.hasPermission('r2Read')) {
+            throw new Error(`Plugin '${this.pluginId}' does not have the required 'r2Read' permission.`);
+        }
+        return this.r2.head(key);
+    }
 }
