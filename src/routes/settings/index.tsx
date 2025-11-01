@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 // import { useNavigate } from 'react-router';
 import {
 	Eye,
@@ -56,6 +56,7 @@ import {
 import { toast } from 'sonner';
 import { apiClient } from '@/lib/api-client';
 import { ByokApiKeysModal } from '@/components/byok-api-keys-modal';
+import PluginRegistry from '@/PluginRegistry';
 
 // Import provider logos (reusing existing pattern from BYOK modal)
 import OpenAILogo from '@/assets/provider-logos/openai.svg?react';
@@ -117,6 +118,15 @@ export default function SettingsPage() {
 
 	// BYOK modal state
 	const [byokModalOpen, setByokModalOpen] = useState(false);
+	const [settingPanels, setSettingPanels] = useState<React.ReactNode[]>([]);
+
+	useEffect(() => {
+		const fetchSettingPanels = async () => {
+			const panels = await PluginRegistry.executeHook('registerSettingPanel', []);
+			setSettingPanels(panels);
+		};
+		fetchSettingPanels();
+	}, []);
 
 	// Handle BYOK key added/removed - refresh both secrets and model configs
 	const handleByokKeyAdded = () => {
@@ -676,6 +686,10 @@ export default function SettingsPage() {
 							/>
 						</CardContent>
 					</Card>
+
+					{settingPanels.map((panel, index) => (
+						<React.Fragment key={index}>{panel}</React.Fragment>
+					))}
 
 					{/* User Secrets Section */}
 					<Card id="secrets">

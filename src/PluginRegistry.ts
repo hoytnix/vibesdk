@@ -57,6 +57,13 @@ class PluginRegistry {
     this.addHook('afterDatabaseQueryExecute', 'Action');
     this.addHook('onR2FileUploaded', 'Action');
     this.addHook('beforeOutboundFetch', 'Filter');
+
+    // Register the UI hooks
+    this.addHook('registerToolbarButton', 'Filter');
+    this.addHook('registerSettingPanel', 'Filter');
+    this.addHook('onSidebarRender', 'Filter');
+    this.addHook('onChatInputPrepend', 'Filter');
+    this.addHook('onChatThreadPostMessage', 'Filter');
   }
 
   public addHook(hookName: string, type: 'Action' | 'Filter'): void {

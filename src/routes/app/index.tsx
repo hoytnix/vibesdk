@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
 import type { AppDetailsData, FileType } from '@/api-types';
 import { apiClient, ApiError } from '@/lib/api-client';
+import PluginRegistry from '@/PluginRegistry';
 import { appEvents } from '@/lib/app-events';
 import {
 	Star,
@@ -95,6 +96,15 @@ export default function AppView() {
 	const [isDeleting, setIsDeleting] = useState(false);
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const previewIframeRef = useRef<HTMLIFrameElement>(null);
+	const [toolbarButtons, setToolbarButtons] = useState<React.ReactNode[]>([]);
+
+	useEffect(() => {
+		const fetchToolbarButtons = async () => {
+			const buttons = await PluginRegistry.executeHook('registerToolbarButton', []);
+			setToolbarButtons(buttons);
+		};
+		fetchToolbarButtons();
+	}, []);
 
 	const fetchAppDetails = useCallback(async () => {
 		if (!id) return;
@@ -632,6 +642,10 @@ export default function AppView() {
 										)}
 									</Button>
 								)}
+
+								{toolbarButtons.map((button, index) => (
+									<React.Fragment key={index}>{button}</React.Fragment>
+								))}
 
 								{isOwner ? (
 									<>

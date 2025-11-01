@@ -1,4 +1,4 @@
-import {
+import React, {
 	useCallback,
 	useEffect,
 	useMemo,
@@ -34,6 +34,8 @@ import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { createAIMessage } from './utils/message-helpers';
+import PluginRegistry from '@/PluginRegistry';
+import ChatMessageExtension from './components/ChatMessageExtension';
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
@@ -152,6 +154,15 @@ export default function Chat() {
 	// Debug panel state
 	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
 	const deploymentControlsRef = useRef<HTMLDivElement>(null);
+	const [chatInputComponents, setChatInputComponents] = useState<React.ReactNode[]>([]);
+
+	useEffect(() => {
+		const fetchChatComponents = async () => {
+			const inputComponents = await PluginRegistry.executeHook('onChatInputPrepend', []);
+			setChatInputComponents(inputComponents);
+		};
+		fetchChatComponents();
+	}, []);
 
 	// Model config info state
 	const [modelConfigs, setModelConfigs] = useState<{
@@ -543,11 +554,14 @@ export default function Chat() {
 							)}
 
 							{mainMessage && (
-								<AIMessage
-									message={mainMessage.content}
-									isThinking={mainMessage.ui?.isThinking}
-									toolEvents={mainMessage.ui?.toolEvents}
-								/>
+								<>
+									<AIMessage
+										message={mainMessage.content}
+										isThinking={mainMessage.ui?.isThinking}
+										toolEvents={mainMessage.ui?.toolEvents}
+									/>
+									<ChatMessageExtension message={mainMessage} />
+								</>
 							)}
 
 							<PhaseTimeline
@@ -621,10 +635,12 @@ export default function Chat() {
 									);
 								}
 								return (
-									<UserMessage
-										key={message.conversationId}
-										message={message.content}
-									/>
+									<React.Fragment key={message.conversationId}>
+										<UserMessage
+											message={message.content}
+										/>
+										<ChatMessageExtension message={message} />
+									</React.Fragment>
 								);
 							})}
 						</div>
@@ -636,6 +652,11 @@ export default function Chat() {
                         className="shrink-0 p-4 pb-5 bg-transparent"
                         {...chatDragHandlers}
                     >
+						<div className="flex flex-col gap-2">
+							{chatInputComponents.map((component, index) => (
+								<React.Fragment key={index}>{component}</React.Fragment>
+							))}
+						</div>
 					<input
 						ref={imageInputRef}
 						type="file"

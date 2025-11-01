@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	Users,
 	Settings,
@@ -41,6 +41,7 @@ import {
 } from '@/components/ui/tooltip';
 import { formatDistanceToNow, isValid } from 'date-fns';
 import { AppActionsDropdown } from '@/components/shared/AppActionsDropdown';
+import PluginRegistry from '@/PluginRegistry';
 
 interface App {
 	id: string;
@@ -156,6 +157,15 @@ export function AppSidebar() {
 	]);
 	const { state, setOpen } = useSidebar();
 	const isCollapsed = state === 'collapsed';
+	const [sidebarItems, setSidebarItems] = React.useState<React.ReactNode[]>([]);
+
+	useEffect(() => {
+		const fetchSidebarItems = async () => {
+			const items = await PluginRegistry.executeHook('onSidebarRender', []);
+			setSidebarItems(items);
+		};
+		fetchSidebarItems();
+	}, []);
 
 	// Fetch real data from API
 	const { apps: recentApps, moreAvailable } = useRecentApps();
@@ -430,6 +440,21 @@ export function AppSidebar() {
 															getVisibilityIcon
 														}
 													/>
+												))}
+											</SidebarMenu>
+										</SidebarGroupContent>
+									</SidebarGroup>
+								</>
+							)}
+
+							{sidebarItems.length > 0 && (
+								<>
+									<SidebarSeparator />
+									<SidebarGroup>
+										<SidebarGroupContent>
+											<SidebarMenu>
+												{sidebarItems.map((item, index) => (
+													<React.Fragment key={index}>{item}</React.Fragment>
 												))}
 											</SidebarMenu>
 										</SidebarGroupContent>
