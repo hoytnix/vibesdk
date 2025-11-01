@@ -47,6 +47,7 @@ import { CodingAgentInterface } from '../services/implementations/CodingAgent';
 import { generateAppProxyToken, generateAppProxyUrl } from 'worker/services/aigateway-proxy/controller';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ConversationMessage, ConversationState } from '../inferutils/common';
+import PluginRegistry from '../../../src/PluginRegistry';
 
 interface WebhookPayload {
     event: {
@@ -265,7 +266,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         initArgs: AgentInitArgs,
         ..._args: unknown[]
     ): Promise<CodeGenState> {
-
+        initArgs = await PluginRegistry.executeHook('onAgentRequestStart', initArgs);
         const { query, language, frameworks, hostname, inferenceContext, templateInfo, sandboxSessionId } = initArgs;
         this.initLogger(inferenceContext.agentId, sandboxSessionId, inferenceContext.userId);
         
@@ -584,6 +585,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 message: "Code generation and review process completed.",
                 instanceId: this.state.sandboxInstanceId,
             });
+            PluginRegistry.executeHook('onGenerationComplete', this.state);
         }
     }
 
@@ -851,6 +853,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
      * Generate next phase with user context (suggestions and images)
      */
     async generateNextPhase(currentIssues: AllIssues, userContext?: UserContext): Promise<PhaseConceptGenerationSchemaType | undefined> {
+        ({ currentIssues, userContext } = await PluginRegistry.executeHook('onGenerationPhaseStart', { currentIssues, userContext }));
         const issues = IssueReport.from(currentIssues);
         
         // Build notification message
@@ -1115,7 +1118,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
      * Analyzes for runtime errors, static issues, and best practices
      */
     async reviewCode() {
-        const issues = await this.fetchAllIssues(true);
+        let issues = await this.fetchAllIssues(true);
+        issues = await PluginRegistry.executeHook('onAgentError', issues);
         const issueReport = IssueReport.from(issues);
 
         // Report discovered issues

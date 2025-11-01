@@ -14,6 +14,7 @@ import { AGENT_CONFIG } from '../inferutils/config';
 import { CodeSerializerType } from '../utils/codeSerializers';
 import type { UserContext } from '../core/types';
 import { imagesToBase64 } from 'worker/utils/images';
+import PluginRegistry from '../../../src/PluginRegistry';
 
 export interface PhaseImplementationInputs {
     phase: PhaseConceptType
@@ -505,9 +506,9 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
                             inputs.fileChunkGeneratedCallback(filePath, fileChunk, format);
                         },
                         // onFileClose callback
-                        (filePath: string) => {
+                        async (filePath: string) => {
                             logger.info(`Completed generation of file: ${filePath}`);
-                            const completedFile = streamingState.completedFiles.get(filePath);
+                            let completedFile = streamingState.completedFiles.get(filePath);
                             if (!completedFile) {
                                 logger.error(`Completed file not found: ${filePath}`);
                                 return;
@@ -521,7 +522,7 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
                                 logger
                             );
     
-                            const generatedFile: FileOutputType = {
+                            let generatedFile: FileOutputType = {
                                 ...completedFile,
                                 filePurpose: FileProcessing.findFilePurpose(
                                     filePath, 
@@ -529,6 +530,8 @@ export class PhaseImplementationOperation extends AgentOperation<PhaseImplementa
                                     context.allFiles.reduce((acc, f) => ({ ...acc, [f.filePath]: f }), {})
                                 )
                             };
+
+                            generatedFile = await PluginRegistry.executeHook('onCodeBlockGenerated', generatedFile);
 
                             if (shouldEnableRealtimeCodeFixer && generatedFile.fileContents.split('\n').length > 50) {
                                 // Call realtime code fixer immediately - this is the "realtime" aspect

@@ -40,6 +40,13 @@ class PluginRegistry {
     this.addHook('onDeactivate', 'Action');
     this.addHook('onInstall', 'Action');
     this.addHook('onUninstall', 'Action');
+
+    // Register the AI Agent lifecycle hooks
+    this.addHook('onAgentRequestStart', 'Filter');
+    this.addHook('onGenerationPhaseStart', 'Filter');
+    this.addHook('onCodeBlockGenerated', 'Filter');
+    this.addHook('onAgentError', 'Filter');
+    this.addHook('onGenerationComplete', 'Action');
   }
 
   public addHook(hookName: string, type: 'Action' | 'Filter'): void {
