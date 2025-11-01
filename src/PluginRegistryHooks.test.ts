@@ -33,7 +33,7 @@ describe('PluginRegistry Lifecycle Hooks', () => {
     PluginRegistry.registerHookCallback('onInstall', onInstallCallback, pluginId);
     await PluginRegistry.executeHook('onInstall', pluginId);
 
-    expect(onInstallCallback).toHaveBeenCalledWith(pluginId);
+    expect(onInstallCallback).toHaveBeenCalledWith(pluginId, expect.any(Object));
   });
 
   it('should execute onUninstall callbacks', async () => {
@@ -43,6 +43,6 @@ describe('PluginRegistry Lifecycle Hooks', () => {
     PluginRegistry.registerHookCallback('onUninstall', onUninstallCallback, pluginId);
     await PluginRegistry.executeHook('onUninstall', pluginId);
 
-    expect(onUninstallCallback).toHaveBeenCalledWith(pluginId);
+    expect(onUninstallCallback).toHaveBeenCalledWith(pluginId, expect.any(Object));
   });
 });

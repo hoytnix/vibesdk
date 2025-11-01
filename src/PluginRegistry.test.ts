@@ -22,6 +22,8 @@ describe('PluginRegistry', () => {
     PluginRegistry.hooks.clear();
     // @ts-ignore
     PluginRegistry.hookTypes.clear();
+    // @ts-ignore
+    PluginRegistry.plugins.clear();
     vi.clearAllMocks();
     PluginRegistry.initialize(mockDb, mockDb, mockPluginCodeFs);
   });
@@ -97,8 +99,8 @@ describe('PluginRegistry', () => {
         PluginRegistry.registerHookCallback('action-hook', callback2, pluginId);
         const result = await PluginRegistry.executeHook('action-hook', 'initial');
         expect(result).toBe('initial');
-        expect(callback1).toHaveBeenCalledWith('initial');
-        expect(callback2).toHaveBeenCalledWith('initial');
+        expect(callback1).toHaveBeenCalledWith('initial', expect.any(Object));
+        expect(callback2).toHaveBeenCalledWith('initial', expect.any(Object));
       });
     });
 
@@ -174,14 +176,14 @@ describe('PluginRegistry', () => {
       const onActivateCallback = vi.fn();
       PluginRegistry.registerHookCallback('onActivate', onActivateCallback, pluginId);
       await PluginRegistry.activate(pluginId);
-      expect(onActivateCallback).toHaveBeenCalledWith(pluginId);
+      expect(onActivateCallback).toHaveBeenCalledWith(pluginId, expect.any(Object));
     });
 
     it('should call the onDeactivate hook when a plugin is deactivated', async () => {
       const onDeactivateCallback = vi.fn();
       PluginRegistry.registerHookCallback('onDeactivate', onDeactivateCallback, pluginId);
       await PluginRegistry.deactivate(pluginId);
-      expect(onDeactivateCallback).toHaveBeenCalledWith(pluginId);
+      expect(onDeactivateCallback).toHaveBeenCalledWith(pluginId, expect.any(Object));
     });
   });
 });

@@ -21,6 +21,7 @@ const permissionDisplayNames: Record<string, string> = {
   d1Read: 'Read from Database (D1)',
   d1Write: 'Write to Database (D1)',
   r2Read: 'Read from File Storage (R2)',
+  r2Write: 'Write to File Storage (R2)',
   externalFetch: 'Make External Network Requests',
 };
 

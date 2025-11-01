@@ -15,11 +15,11 @@ const mockDb = {
 } as unknown as D1Database;
 
 const mockR2 = {
-  get: vi.fn(),
-  put: vi.fn(),
-  head: vi.fn(),
-  list: vi.fn(),
-  delete: vi.fn(),
+  get: vi.fn().mockResolvedValue(null),
+  put: vi.fn().mockResolvedValue({} as R2Object),
+  head: vi.fn().mockResolvedValue(null),
+  list: vi.fn().mockResolvedValue({ objects: [] } as R2Objects),
+  delete: vi.fn().mockResolvedValue(undefined),
 } as unknown as R2Bucket;
 
 const mockPluginWithAllPermissions: Plugin = {
@@ -58,6 +58,13 @@ describe('Sandboxing', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     const registryInstance = PluginRegistry as any;
+    // Reset all state
+    registryInstance.hooks.clear();
+    registryInstance.hookTypes.clear();
+    registryInstance.plugins.clear();
+    PluginRegistry.initialize(mockDb, mockDb, mockR2); // Use mockR2 for code Fs
+
+    // Set up plugins for this test suite
     registryInstance.plugins.set(mockPluginWithAllPermissions.id, mockPluginWithAllPermissions);
     registryInstance.plugins.set(mockPluginWithNoPermissions.id, mockPluginWithNoPermissions);
   });
@@ -105,8 +112,8 @@ describe('Sandboxing', () => {
     });
 
     it('should deny write operations without r2Write permission', async () => {
-        const sandboxedR2 = new SandboxedR2(mockR2, mockPluginWithNoPermissions.id, PluginRegistry);
-        await expect(sandboxedR2.put('test-key', 'test-value')).rejects.toThrow("Plugin 'test-plugin-no-perms' does not have the required 'r2Write' permission.");
+      const sandboxedR2 = new SandboxedR2(mockR2, mockPluginWithNoPermissions.id, PluginRegistry);
+      await expect(sandboxedR2.put('test-key', 'test-value')).rejects.toThrow("Plugin 'test-plugin-no-perms' does not have the required 'r2Write' permission.");
     });
   });
 });
