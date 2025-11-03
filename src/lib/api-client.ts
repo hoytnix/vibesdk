@@ -210,6 +210,14 @@ class ApiClient {
 		}
 	}
 
+	/**
+	 * Public method to refresh CSRF token
+	 * Should be called after authentication operations that rotate the token
+	 */
+	async refreshCsrfToken(): Promise<void> {
+		await this.fetchCsrfToken();
+	}
+
 
 	/**
 	 * Check if CSRF token is expired

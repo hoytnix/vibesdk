@@ -1186,6 +1186,9 @@ class SetupManager {
 		content += '# Required secrets\n';
 		content += `JWT_SECRET="${this.config.devVars.JWT_SECRET}"\n`;
 		content += `WEBHOOK_SECRET="${this.config.devVars.WEBHOOK_SECRET}"\n`;
+		if (this.config.devVars.USE_TUNNEL_FOR_PREVIEW) {
+			content += `USE_TUNNEL_FOR_PREVIEW="${this.config.devVars.USE_TUNNEL_FOR_PREVIEW}"\n`;
+		}
 
 		// Worker configuration variables (preserved from existing .dev.vars)
 		if (workerConfigVarsToPreserve.size > 0) {
@@ -1249,6 +1252,7 @@ class SetupManager {
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 			'JWT_SECRET', 'WEBHOOK_SECRET'
+			// Note: USE_TUNNEL_FOR_PREVIEW is intentionally excluded - it's dev-only
 		]);
 
 		let content = '';
