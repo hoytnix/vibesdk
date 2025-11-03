@@ -16,6 +16,7 @@ RUN apt-get update && \
         chmod +x cloudflared && \
         mv cloudflared /usr/local/bin/ && \
         rm -rf /var/lib/apt/lists/* && \    
+    	mkdir -p /root && \
         git config --global user.email "vibesdk-bot@cloudflare.com" && \
         git config --global user.name "Cloudflare Vibesdk bot"
 
